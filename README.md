@@ -1,5 +1,5 @@
 # pyfuncbuffer
-![Build Status](https://github.com/Jupsista/pyfuncbuffer/workflows/pytest/badge.svg)
+[![Build status](https://github.com/Jupsista/pyfuncbuffer/actions/workflows/pytest.yml/badge.svg?branch=master)](https://github.com/Jupsista/pyfuncbuffer/actions/workflows/pytest.yml)
 
 A simple to use decorator to buffer function calls.
 
