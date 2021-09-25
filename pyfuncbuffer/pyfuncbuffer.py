@@ -1,6 +1,6 @@
 """pyfuncbuffer.py - A library for buffering function calls.
 
-Copyright (C) 2021 TODO: Add name
+Copyright (C) 2021 Jupsista
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -60,7 +60,6 @@ def buffer(seconds: Union[float, int],
             # A lock is required, so that if the function is called rapidly,
             # we can still buffer all the calls. Wihthout this, calls would
             # get through without being buffered.
-            print(Buffer.last_called)
             Buffer.lock.acquire()
             l_random_delay = random.uniform(self.random_delay_start, self.random_delay_end)
             while True:

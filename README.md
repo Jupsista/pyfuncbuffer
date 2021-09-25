@@ -11,7 +11,7 @@ $ pip install pyfuncbuffer
 
 ## Example usage
 
-Let's say you have a scraper, and don't want to sites to timeout you.
+Let's say you have a scraper, and don't want sites to timeout you.
 You can use the `@buffer()` wrapper to make your function calls buffered!
 
 ```python
