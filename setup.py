@@ -16,7 +16,7 @@ setup(
     long_description_content_type='text/markdown',
     classifiers=[
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
         "Typing :: Typed",
         "Topic :: Software Development :: Libraries",
