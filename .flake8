@@ -1,5 +1,5 @@
 [flake8]
 per-file-ignores =
     # pyfuncbuffer.py can have longer lines for better readability
-    src/pyfuncbuffer.py:E501
-exclude = setup.py, .github, .git, .pytest_cache, __pycache__, venv
+    pyfuncbuffer/pyfuncbuffer.py:E501
+exclude = setup.py, .github, .git, .pytest_cache, __pycache__, venv, pyfuncbuffer/__init__.py
