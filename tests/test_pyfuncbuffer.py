@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import time
 
-from src.pyfuncbuffer import buffer
+from pyfuncbuffer.pyfuncbuffer import buffer
 
 
 # A function shouldn't buffer if it is called only once
