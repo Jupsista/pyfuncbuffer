@@ -35,8 +35,7 @@ def buffer(seconds: Union[float, int],
                       random_delay, or if a tuple is passed,
                       between random_delay[0] and random_delay[1].
                       Can be omitted.
-
-    Random delay can be used or omitted to buffer functions by a random time.
+        always_buffer: Wether to always buffer function calls or not
     """
     class Buffer:
         # Store function calls in a dictionary where function is the key
@@ -81,7 +80,7 @@ def buffer(seconds: Union[float, int],
                     Buffer.lock.release()
                     return self.func(*args, **kwargs)
 
-        # This is required for class functions to work
+        # This is required for instance methods to work
         def __get__(self, instance, instancetype):
             """Return original function.
 
