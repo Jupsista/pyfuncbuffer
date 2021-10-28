@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import asyncio
 import functools
 import time
 import threading
@@ -82,9 +83,19 @@ def buffer(seconds: Union[float, int],
                 return self.func(*args, **kwargs)
 
             if self.buffer_on_same_arguments:
-                return self.buffer_same_args(*args, **kwargs)
+                if asyncio.iscoroutinefunction(self.func):
+                    async def tmp():
+                        return await self.buffer_same_args_async(*args, **kwargs)
+                    return tmp()
+                else:
+                    return self.buffer_same_args(*args, **kwargs)
             else:
-                return self.buffer_regular(*args, **kwargs)
+                if asyncio.iscoroutinefunction(self.func):
+                    async def tmp():
+                        return await self.buffer_regular_async(*args, **kwargs)
+                    return tmp()
+                else:
+                    return self.buffer_regular(*args, **kwargs)
 
         def buffer_same_args(self, *args, **kwargs):
             """Buffer the function only when `*args` and `**kwargs` are the same."""
@@ -107,6 +118,27 @@ def buffer(seconds: Union[float, int],
             Buffer.lock.release()
             return self.func(*args, **kwargs)
 
+        async def buffer_same_args_async(self, *args, **kwargs):
+            """Buffer the function asynchronously only when `*args` and `**kwargs` are the same."""
+            if not Buffer.arguments:
+                self.add_arguments(*args, **kwargs)
+                Buffer.lock.release()
+                return await self.func(*args, **kwargs)
+
+            time_of_last_call = self.get_last_called_with_args(*args, **kwargs)
+            print("time_of_last_call: ", time_of_last_call)
+            if not time_of_last_call:
+                self.add_arguments(*args, **kwargs)
+                Buffer.lock.release()
+                return await self.func(*args, **kwargs)
+
+            if not (time.time() - time_of_last_call) > self.seconds:
+                await asyncio.sleep(self.get_sleep_time(time_of_last_call))
+
+            self.add_arguments(*args, **kwargs)
+            Buffer.lock.release()
+            return await self.func(*args, **kwargs)
+
         def buffer_regular(self, *args, **kwargs):
             """Buffer self.function depending on self.seconds and random_delay."""
             l_random_delay = random.uniform(self.random_delay_start, self.random_delay_end)
@@ -124,6 +156,24 @@ def buffer(seconds: Union[float, int],
                 Buffer.last_called[self.func] = (time.time() + l_random_delay)
                 Buffer.lock.release()
                 return self.func(*args, **kwargs)
+
+        async def buffer_regular_async(self, *args, **kwargs):
+            """Buffer self.function asynchronously depending on self.seconds and random_delay."""
+            l_random_delay = random.uniform(self.random_delay_start, self.random_delay_end)
+            if Buffer.last_called:
+                if (time.time() - Buffer.last_called.get(self.func)) > self.seconds:
+                    Buffer.last_called[self.func] = (time.time() + l_random_delay)
+                    Buffer.lock.release()
+                    return await self.func(*args, **kwargs)
+                else:
+                    await asyncio.sleep(self.get_sleep_time(Buffer.last_called.get(self.func)))
+                    Buffer.last_called[self.func] = (time.time() + l_random_delay)
+                    Buffer.lock.release()
+                    return await self.func(*args, **kwargs)
+            else:
+                Buffer.last_called[self.func] = (time.time() + l_random_delay)
+                Buffer.lock.release()
+                return await self.func(*args, **kwargs)
 
         def get_last_called_with_args(self, *args, **kwargs) -> Union[float, None]:
             """Return time of last call with *args and **kwargs."""

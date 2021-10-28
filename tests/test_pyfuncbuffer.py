@@ -18,6 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import time
 
+import pytest
+
 from pyfuncbuffer.pyfuncbuffer import buffer
 
 
@@ -357,7 +359,7 @@ def test_random_delay_with_sleep():
     assert(time2 - now > 0.3)
 
 
-def test_random_delay():
+def test_random_delay_once():
     @buffer(0, (0.1, 0.1), always_buffer=True)
     def normal_function():
         return time.time()
@@ -365,3 +367,70 @@ def test_random_delay():
     now = time.time()
     time1 = normal_function()
     assert(now + 0.05 < time1)
+
+
+def test_random_delay_twice():
+    @buffer(0, (0.1, 0.1))
+    def normal_function():
+        return time.time()
+
+    time1 = normal_function()
+    time2 = normal_function()
+    assert(time2 - time1 > 0.1)
+
+
+# A function shouldn't buffer if it is called only once
+@pytest.mark.asyncio
+async def test_async_normal_function_once():
+    @buffer(0.1)  # Buffer by 0.1 seconds
+    async def normal_function():
+        return time.time()
+
+    now = time.time()
+    time1 = await normal_function()
+    assert(now + 0.05 > time1)
+
+
+# The second function call should be buffered
+@pytest.mark.asyncio
+async def test_async_normal_function_twice():
+    @buffer(0.1)
+    async def normal_function():
+        return time.time()
+
+    time1 = await normal_function()
+    time2 = await normal_function()
+
+    assert(time2 - time1 > 0.1)
+
+
+# A class function shouldn't buffer if it is called only once
+@pytest.mark.asyncio
+async def test_async_class_function_once():
+    class Test:
+        @buffer(0.1)
+        async def class_function(self):
+            return time.time()
+
+    test = Test()
+
+    now = time.time()
+    time1 = await test.class_function()
+
+    assert(now + 0.05 > time1)
+
+
+# The second class function call should be buffered
+@pytest.mark.asyncio
+async def test_async_class_function_twice():
+    class Class1:
+        @buffer(0.1)
+        async def class_function(self):
+            return time.time()
+
+    class1 = Class1()
+
+    time1 = await class1.class_function()
+    time2 = await class1.class_function()
+
+    assert(time2 - time1 > 0.1)
