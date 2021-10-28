@@ -50,9 +50,9 @@ def buffer(seconds: Union[float, int],
         # Store function calls in a dictionary where function is the key
         # and time of last call is the value
         last_called = {}
-        # Store arguments in adictionary where function is the key
-        # and the key is a dictionary where the arguments are the
-        # key and the time of last call with said arguments is the value
+        # Store arguments in adictionary where a set containing the function,
+        # args and kwargs in said order is the key and the value
+        # is the time of last call
         arguments = {}
         lock = threading.Lock()
 
