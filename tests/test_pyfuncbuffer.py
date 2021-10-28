@@ -22,6 +22,133 @@ from pyfuncbuffer.pyfuncbuffer import buffer
 
 
 # A function shouldn't buffer if it is called only once
+def test_buffer_on_same_arguments_once():
+    @buffer(0.1, buffer_on_same_arguments=True)
+    def normal_function(lmao, jj, pp):
+        return time.time()
+
+    now = time.time()
+    time1 = normal_function("aaaaaaa", 1, pp=("kwarg1", "kwarg2"))
+    assert(now + 0.05 > time1)
+
+
+# The second function call should be buffered
+def test_buffer_on_same_arguments_twice():
+    @buffer(0.1, buffer_on_same_arguments=True)
+    def normal_function(arg1):
+        return time.time()
+
+    time1 = normal_function("foo")
+    time2 = normal_function("foo")
+
+    assert(time2 - time1 > 0.1)
+
+
+# Functions should have their own buffers
+def test_buffer_on_same_arguments_many_functions():
+    @buffer(0.1, buffer_on_same_arguments=True)
+    def normal_function1(arg1):
+        return time.time()
+
+    @buffer(0.1, buffer_on_same_arguments=True)
+    def normal_function2(arg1):
+        return time.time()
+
+    time1 = normal_function1("foo")
+    time2 = normal_function1("foo")
+    assert(time2 - time1 > 0.1)
+
+    now = time.time()
+    time1 = normal_function2("foo")
+    # This shouldn't be buffered
+    assert(now + 0.05 > time1)
+    time2 = normal_function2("foo")
+    assert(time2 - time1 > 0.1)
+
+
+# Using different arguments shouldn't buffer
+def test_buffer_on_same_arguments_different_args():
+    @buffer(0.1, buffer_on_same_arguments=True)
+    def normal_function(arg1):
+        return time.time()
+
+    now = time.time()
+    normal_function("test_arg")
+    time1 = normal_function("different_test_arg")
+    assert(now + 0.05 > time1)
+
+
+# Using different arguments shouldn't buffer even with
+# other arguments used in between
+def test_buffer_on_same_arguments_different_args_many():
+    @buffer(0.1, buffer_on_same_arguments=True)
+    def normal_function(arg1):
+        return time.time()
+
+    now = time.time()
+    normal_function("foo")
+    normal_function("bar")
+    time1 = normal_function("baz")
+    assert(now + 0.05 > time1)
+
+
+def test_buffer_on_same_arguments_different_args_and_kwargs():
+    @buffer(0.1, buffer_on_same_arguments=True)
+    def normal_function(arg1, arg2):
+        return time.time()
+
+    now = time.time()
+    time1 = normal_function("foo", arg2="bar")
+    time2 = normal_function("foo", arg2="baz")  # Shouldn't get buffered
+    assert(now + 0.05 > time2)
+    time2 = normal_function("foo", arg2="bar")  # Should get buffered
+    assert(time2 - time1 > 0.1)
+
+
+# A class function shouldn't buffer if it is called only once
+def test_buffer_on_same_arguments_class_function_once():
+    class Test:
+        @buffer(0.1, buffer_on_same_arguments=True)
+        def class_function(self, arg1):
+            return time.time()
+
+    test = Test()
+
+    now = time.time()
+    time1 = test.class_function("foo")
+
+    assert(now + 0.05 > time1)
+
+
+# Classes should have their own buffers
+def test_buffer_on_same_arguments_many_class_functions():
+    class Class1:
+        @buffer(0.1, buffer_on_same_arguments=True)
+        def class_function(self, arg1):
+            return time.time()
+
+    class Class2:
+        @buffer(0.1, buffer_on_same_arguments=True)
+        def class_function(self, arg1):
+            return time.time()
+
+    class1 = Class1()
+    class2 = Class2()
+
+    time1 = class1.class_function("foo")
+    time2 = class1.class_function("foo")
+
+    assert(time2 - time1 > 0.1)
+
+    now = time.time()
+    time1 = class2.class_function("foo")
+    # This shouldn't be buffered
+    assert(now + 0.05 > time1)
+    time2 = class2.class_function("foo")
+    assert(time2 - time1 > 0.1)
+
+
+# A function shouldn't buffer if it is called only once
 def test_normal_function_once():
     @buffer(0.1)  # Buffer by 0.1 seconds
     def normal_function():
@@ -122,7 +249,6 @@ def test_many_class_functions():
     assert(now + 0.05 > time1)
     time2 = class2.class_function()
     assert(time2 - time1 > 0.1)
-    assert(time2 - time1 > 0.1)
 
 
 # All classfunctions should have their own buffers
@@ -189,11 +315,20 @@ def test_attributes():
 # If always buffer is enabled, then the function call should always buffer
 def test_always_buffer():
     @buffer(0.1, always_buffer=True)
-    def normal_function():
+    def normal_function1():
         return time.time()
 
     now = time.time()
-    time1 = normal_function()
+    time1 = normal_function1()
+    assert(now + 0.05 < time1)
+
+    # Always buffer should work with buffer_on_same_arguments
+    @buffer(0.1, always_buffer=True, buffer_on_same_arguments=True)
+    def normal_function2(arg1):
+        return time.time()
+
+    now = time.time()
+    time1 = normal_function2("foo")
     assert(now + 0.05 < time1)
 
 
