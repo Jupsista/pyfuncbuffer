@@ -18,13 +18,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
 import functools
-import time
-import threading
 import random
+import time
 from typing import Union, Tuple
 
 
-# pylint: disable=line-too-long
+# pylint: disable=line-too-long, too-many-statements
 def buffer(seconds: Union[float, int],
            random_delay: Union[float, int, Tuple[Union[float, int], Union[float, int]]] = 0,
            always_buffer: bool = False,
@@ -46,6 +45,7 @@ def buffer(seconds: Union[float, int],
             function are the same. If always_buffer is
             `True`, then this has no effect
     """
+    # pylint: disable=missing-class-docstring
     class Buffer:
         # Store function calls in a dictionary where function is the key
         # and time of last call is the value
@@ -54,7 +54,6 @@ def buffer(seconds: Union[float, int],
         # args and kwargs in said order is the key and the value
         # is the time of last call
         arguments = {}
-        lock = threading.Lock()
 
         def __init__(self, func):
             self.func = func
@@ -63,6 +62,12 @@ def buffer(seconds: Union[float, int],
             self.random_delay_start = 0
             self.random_delay_end = random_delay
             self.buffer_on_same_arguments = buffer_on_same_arguments
+
+            if asyncio.iscoroutinefunction(self.func):
+                self.is_coroutine = True
+            else:
+                self.is_coroutine = False
+
             if isinstance(random_delay, tuple):
                 self.random_delay_start = random_delay[0]
                 self.random_delay_end = random_delay[0]
@@ -70,110 +75,93 @@ def buffer(seconds: Union[float, int],
             functools.update_wrapper(self, func)  # Transfer func attributes
 
         def __call__(self, *args, **kwargs):
-            # A lock is required, so that if the function is called rapidly,
-            # we can still buffer all the calls. Wihthout this, calls would
-            # get through without being buffered.
-            Buffer.lock.acquire()
             l_random_delay = random.uniform(self.random_delay_start, self.random_delay_end)
             # If always buffer is on then this is the only required thing to do
             if self.always_buffer:
+                if asyncio.iscoroutinefunction(self.func):
+                    async def temp():
+                        await asyncio.sleep(self.seconds + l_random_delay)
+                        Buffer.last_called[self.func] = (time.time() + l_random_delay)
+                        return await self.func(*args, **kwargs)
+                    return temp()
+
                 time.sleep(self.seconds + l_random_delay)
                 Buffer.last_called[self.func] = (time.time() + l_random_delay)
-                Buffer.lock.release()
                 return self.func(*args, **kwargs)
 
+            # pylint: disable=no-else-return
             if self.buffer_on_same_arguments:
-                if asyncio.iscoroutinefunction(self.func):
+                if self.is_coroutine:
+                    # We have to make a temp function, otherwise we can't return async from a
+                    # non-async function.
                     async def tmp():
                         return await self.buffer_same_args_async(*args, **kwargs)
                     return tmp()
-                else:
-                    return self.buffer_same_args(*args, **kwargs)
+
+                returning = self.buffer_same_args(*args, **kwargs)
+                return returning
             else:
-                if asyncio.iscoroutinefunction(self.func):
+                if self.is_coroutine:
                     async def tmp():
                         return await self.buffer_regular_async(*args, **kwargs)
                     return tmp()
-                else:
-                    return self.buffer_regular(*args, **kwargs)
+
+                returning = self.buffer_regular(*args, **kwargs)
+                return returning
 
         def buffer_same_args(self, *args, **kwargs):
             """Buffer the function only when `*args` and `**kwargs` are the same."""
             if not Buffer.arguments:
                 self.add_arguments(*args, **kwargs)
-                Buffer.lock.release()
                 return self.func(*args, **kwargs)
 
             time_of_last_call = self.get_last_called_with_args(*args, **kwargs)
-            print("time_of_last_call: ", time_of_last_call)
             if not time_of_last_call:
                 self.add_arguments(*args, **kwargs)
-                Buffer.lock.release()
                 return self.func(*args, **kwargs)
 
             if not (time.time() - time_of_last_call) > self.seconds:
                 time.sleep(self.get_sleep_time(time_of_last_call))
 
             self.add_arguments(*args, **kwargs)
-            Buffer.lock.release()
             return self.func(*args, **kwargs)
 
         async def buffer_same_args_async(self, *args, **kwargs):
             """Buffer the function asynchronously only when `*args` and `**kwargs` are the same."""
             if not Buffer.arguments:
                 self.add_arguments(*args, **kwargs)
-                Buffer.lock.release()
                 return await self.func(*args, **kwargs)
 
             time_of_last_call = self.get_last_called_with_args(*args, **kwargs)
-            print("time_of_last_call: ", time_of_last_call)
             if not time_of_last_call:
                 self.add_arguments(*args, **kwargs)
-                Buffer.lock.release()
                 return await self.func(*args, **kwargs)
 
             if not (time.time() - time_of_last_call) > self.seconds:
                 await asyncio.sleep(self.get_sleep_time(time_of_last_call))
 
             self.add_arguments(*args, **kwargs)
-            Buffer.lock.release()
             return await self.func(*args, **kwargs)
 
         def buffer_regular(self, *args, **kwargs):
             """Buffer self.function depending on self.seconds and random_delay."""
-            l_random_delay = random.uniform(self.random_delay_start, self.random_delay_end)
+            l_random_delay = self.get_random_delay()
             if Buffer.last_called:
-                if (time.time() - Buffer.last_called.get(self.func)) > self.seconds:
-                    Buffer.last_called[self.func] = (time.time() + l_random_delay)
-                    Buffer.lock.release()
-                    return self.func(*args, **kwargs)
-                else:
+                if not (time.time() - Buffer.last_called.get(self.func)) > self.seconds:
                     time.sleep(self.get_sleep_time(Buffer.last_called.get(self.func)))
-                    Buffer.last_called[self.func] = (time.time() + l_random_delay)
-                    Buffer.lock.release()
-                    return self.func(*args, **kwargs)
-            else:
-                Buffer.last_called[self.func] = (time.time() + l_random_delay)
-                Buffer.lock.release()
-                return self.func(*args, **kwargs)
+
+            Buffer.last_called[self.func] = time.time() + l_random_delay
+            return self.func(*args, **kwargs)
 
         async def buffer_regular_async(self, *args, **kwargs):
             """Buffer self.function asynchronously depending on self.seconds and random_delay."""
-            l_random_delay = random.uniform(self.random_delay_start, self.random_delay_end)
+            l_random_delay = self.get_random_delay()
             if Buffer.last_called:
-                if (time.time() - Buffer.last_called.get(self.func)) > self.seconds:
-                    Buffer.last_called[self.func] = (time.time() + l_random_delay)
-                    Buffer.lock.release()
-                    return await self.func(*args, **kwargs)
-                else:
+                if not (time.time() - Buffer.last_called.get(self.func)) > self.seconds:
                     await asyncio.sleep(self.get_sleep_time(Buffer.last_called.get(self.func)))
-                    Buffer.last_called[self.func] = (time.time() + l_random_delay)
-                    Buffer.lock.release()
-                    return await self.func(*args, **kwargs)
-            else:
-                Buffer.last_called[self.func] = (time.time() + l_random_delay)
-                Buffer.lock.release()
-                return await self.func(*args, **kwargs)
+
+            Buffer.last_called[self.func] = time.time() + l_random_delay
+            return await self.func(*args, **kwargs)
 
         def get_last_called_with_args(self, *args, **kwargs) -> Union[float, None]:
             """Return time of last call with *args and **kwargs."""
@@ -181,11 +169,15 @@ def buffer(seconds: Union[float, int],
 
         def add_arguments(self, *args, **kwargs):
             """Add arguments to Buffer.arguments object."""
-            Buffer.arguments[(self.func, args, frozenset(kwargs.items()))] = time.time()
+            Buffer.arguments[(self.func, args, frozenset(kwargs.items()))] = time.time() + self.get_random_delay()
 
-        def get_sleep_time(self, last_called):
+        def get_sleep_time(self, last_called) -> float:
             """Get the required amount of time to sleep depending on last_called."""
-            return (self.seconds - (time.time() - last_called))
+            return self.seconds - (time.time() - last_called)
+
+        def get_random_delay(self) -> float:
+            """Return random delay specified by self.random_delay_start and self.random_delay_end."""
+            return random.uniform(self.random_delay_start, self.random_delay_end)
 
         # This is required for instance methods to work
         def __get__(self, instance, instancetype):
