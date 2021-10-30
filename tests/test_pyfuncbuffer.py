@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import time
+from multiprocessing import Queue, Process
 import pytest
 
 from pyfuncbuffer.pyfuncbuffer import buffer
@@ -499,3 +500,86 @@ async def test_async_always_buffer_twice():
     await normal_function()
     time1 = await normal_function()
     assert(time1 - now > 0.2 and time1 - now < 0.25)
+
+
+# No buffering should happen
+def test_multiprocessing_twice():
+    @buffer(0.1)
+    def shared_function(q):
+        q.put(time.time())
+
+    q1 = Queue()
+    q2 = Queue()
+    p1 = Process(target=shared_function, args=(q1,))
+    p2 = Process(target=shared_function, args=(q2,))
+    now = time.time()
+    p1.start()
+    p2.start()
+    time1 = q1.get()
+    time2 = q2.get()
+    p1.join()
+    p2.join()
+    assert(now + 0.05 > time1 and now + 0.05 > time2)
+
+
+# Second process call should be buffered
+def test_multiprocessing_share_buffer_twice():
+    @buffer(0.1, share_buffer=True)
+    def shared_function(q):
+        q.put(time.time())
+
+    q1 = Queue()
+    q2 = Queue()
+    p1 = Process(target=shared_function, args=(q1,))
+    p2 = Process(target=shared_function, args=(q2,))
+    p1.start()
+    p2.start()
+    time1 = q1.get()
+    time2 = q2.get()
+    p1.join()
+    p2.join()
+    # Use 0.09 instead of 0.1 since multiprocessing can be a bit unpredictable
+    assert(time2 - time1 > 0.09 and time2 - time1 < 0.15)
+
+
+# Function should be buffered both times
+def test_multiprocessing_always_buffer_twice():
+    @buffer(0.1, always_buffer=True)
+    def normal_function(q):
+        q.put(time.time())
+
+    q1 = Queue()
+    q2 = Queue()
+    p1 = Process(target=normal_function, args=(q1,))
+    p2 = Process(target=normal_function, args=(q2,))
+    now = time.time()
+    p1.start()
+    p2.start()
+    _ = q1.get()
+    time1 = q2.get()
+    p1.join()
+    p2.join()
+    assert(time1 - now > 0.18 and time1 - now < 0.25)
+
+
+# The second process method call should be buffered
+def test_multiprocessing_instance_method_twice():
+    class Class:
+        @buffer(0.1, share_buffer=True)
+        def instance_method(self, q):
+            q.put(time.time())
+
+    instance = Class()
+
+    q1 = Queue()
+    q2 = Queue()
+    p1 = Process(target=instance.instance_method, args=(q1,))
+    p2 = Process(target=instance.instance_method, args=(q2,))
+    p1.start()
+    p2.start()
+    time1 = q1.get()
+    time2 = q2.get()
+    p1.join()
+    p2.join()
+    # Use 0.09 instead of 0.1 since multiprocessing can be a bit unpredictable
+    assert(time2 - time1 > 0.09 and time2 - time1 < 0.15)

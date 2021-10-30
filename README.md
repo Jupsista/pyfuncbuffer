@@ -56,6 +56,12 @@ is ignored.
 Only buffer if the arguments on the buffered function are the same.
 False by default.
 
+- `share_buffer`: Optional
+
+Share buffer between processes. This is only useful when using
+multiprocessing, and still wanting to have function calls
+buffered even if called in seperate processes.
+
 ## Testing
 
 Testing is done using [pytest](https://github.com/pytest-dev/pytest) and [pytest-asyncio](https://github.com/pytest-dev/pytest-asyncio).
