@@ -122,44 +122,44 @@ def test_buffer_on_same_arguments_different_args_and_kwargs():
 
 # A class function shouldn't buffer if it is called only once
 def test_buffer_on_same_arguments_class_function_once():
-    class Test:
+    class Class:
         @buffer(0.1, buffer_on_same_arguments=True)
         def class_function(self, arg1):
             return time.time()
 
-    test = Test()
+    instance = Class()
 
     now = time.time()
-    time1 = test.class_function("foo")
+    time1 = instance.class_function("foo")
 
     assert(now + 0.05 > time1)
 
 
 # Classes should have their own buffers
-def test_buffer_on_same_arguments_many_class_functions():
+def test_buffer_on_same_arguments_many_instance_methods():
     class Class1:
         @buffer(0.1, buffer_on_same_arguments=True)
-        def class_function(self, arg1):
+        def instance_method(self, arg1):
             return time.time()
 
     class Class2:
         @buffer(0.1, buffer_on_same_arguments=True)
-        def class_function(self, arg1):
+        def instance_method(self, arg1):
             return time.time()
 
-    class1 = Class1()
-    class2 = Class2()
+    instance1 = Class1()
+    instance2 = Class2()
 
-    time1 = class1.class_function("foo")
-    time2 = class1.class_function("foo")
+    time1 = instance1.instance_method("foo")
+    time2 = instance1.instance_method("foo")
 
     assert(time2 - time1 > 0.1)
 
     now = time.time()
-    time1 = class2.class_function("foo")
+    time1 = instance2.instance_method("foo")
     # This shouldn't be buffered
     assert(now + 0.05 > time1)
-    time2 = class2.class_function("foo")
+    time2 = instance2.instance_method("foo")
     assert(time2 - time1 > 0.1 and time2 - time1 < 0.15)
 
 
@@ -233,108 +233,123 @@ def test_many_normal_functions():
 
 
 # A class function shouldn't buffer if it is called only once
-def test_class_function_once():
-    class Test:
+def test_instance_method_once():
+    class Class:
         @buffer(0.1)
-        def class_function(self):
+        def instance_method(self):
             return time.time()
 
-    test = Test()
+    instance = Class()
 
     now = time.time()
-    time1 = test.class_function()
+    time1 = instance.instance_method()
 
     assert(now + 0.05 > time1)
 
 
 # The second class function call should be buffered
-def test_class_function_twice():
-    class Class1:
+def test_instance_method_twice():
+    class Class:
         @buffer(0.1)
-        def class_function(self):
+        def instance_method(self):
             return time.time()
 
-    class1 = Class1()
+    instance = Class()
 
-    time1 = class1.class_function()
-    time2 = class1.class_function()
+    time1 = instance.instance_method()
+    time2 = instance.instance_method()
 
     assert(time2 - time1 > 0.1 and time2 - time1 < 0.15)
 
 
 # Classes should have their own buffers
-def test_many_class_functions():
+def test_many_instance_methods():
     class Class1:
         @buffer(0.1)
-        def class_method(self):
+        def instance_method(self):
             return time.time()
 
     class Class2:
         @buffer(0.1)
-        def class_method(self):
+        def instance_method(self):
             return time.time()
 
-    class1 = Class1()
-    class2 = Class2()
+    instance1 = Class1()
+    instance2 = Class2()
 
-    time1 = class1.class_method()
-    time2 = class1.class_method()
+    time1 = instance1.instance_method()
+    time2 = instance1.instance_method()
 
     assert(time2 - time1 > 0.1 and time2 - time1 < 0.15)
 
     now = time.time()
-    time1 = class2.class_method()
+    time1 = instance2.instance_method()
     # This shouldn't be buffered
     assert(now + 0.05 > time1)
-    time2 = class2.class_method()
+    time2 = instance2.instance_method()
     assert(time2 - time1 > 0.1 and time2 - time1 < 0.15)
 
 
 # All classfunctions should have their own buffers
 def test_class_with_many_functions():
-    class Class1:
+    class Class:
         @buffer(0.1)
-        def class_method1(self):
+        def instance_method1(self):
             return time.time()
 
         @buffer(0.1)
-        def class_method2(self):
+        def instance_method2(self):
             return time.time()
 
-    class1 = Class1()
+    instance = Class()
 
-    time1 = class1.class_method1()
-    time2 = class1.class_method2()
+    time1 = instance.instance_method1()
+    time2 = instance.instance_method2()
 
     assert(time1 - time2 < 0.1 and time2 - time1 < 0.15)
 
 
 # Multiple instances of the same class should share buffers
 def test_many_instances_off_same_class():
-    class Class1:
+    class Class:
         @buffer(0.1)
-        def class_method(self):
+        def instance_method(self):
             return time.time()
 
-    class1 = Class1()
-    class2 = Class1()
+    instance1 = Class()
+    instance2 = Class()
 
-    time1 = class1.class_method()
-    time2 = class2.class_method()
+    time1 = instance1.instance_method()
+    time2 = instance2.instance_method()
 
     assert(time2 - time1 > 0.1 and time2 - time1 < 0.15)
 
 
 # A staticmethod should be able to be buffered
 def test_staticmethod():
-    class Class1:
+    class Class:
         @staticmethod
         @buffer(0.1)
         def static_method():
             return time.time()
 
-    time1 = Class1.static_method()
-    time2 = Class1.static_method()
+    time1 = Class.static_method()
+    time2 = Class.static_method()
+
+    assert(time2 - time1 > 0.1 and time2 - time1 < 0.15)
+
+
+# A classmethod should be able to be buffered
+def test_classmethod():
+    class Class:
+        @classmethod
+        @buffer(0.1)
+        def class_method(cls):
+            return time.time()
+
+    instance = Class()
+    time1 = Class.class_method()
+    time2 = instance.class_method()
 
     assert(time2 - time1 > 0.1 and time2 - time1 < 0.15)
 
@@ -443,32 +458,32 @@ async def test_async_normal_function_twice():
 
 # A class function shouldn't buffer if it is called only once
 @pytest.mark.asyncio
-async def test_async_class_method_once():
-    class Test:
+async def test_async_instance_method_once():
+    class Class:
         @buffer(0.1)
-        async def class_method(self):
+        async def instance_method(self):
             return time.time()
 
-    test = Test()
+    instance = Class()
 
     now = time.time()
-    time1 = await test.class_method()
+    time1 = await instance.instance_method()
 
     assert(now + 0.05 > time1)
 
 
 # The second class function call should be buffered
 @pytest.mark.asyncio
-async def test_async_class_method_twice():
-    class Class1:
+async def test_async_instance_method_twice():
+    class Class:
         @buffer(0.1)
-        async def class_method(self):
+        async def instance_method(self):
             return time.time()
 
-    class1 = Class1()
+    instance = Class()
 
-    time1 = await class1.class_method()
-    time2 = await class1.class_method()
+    time1 = await instance.instance_method()
+    time2 = await instance.instance_method()
 
     assert(time2 - time1 > 0.1 and time2 - time1 < 0.15)
 
