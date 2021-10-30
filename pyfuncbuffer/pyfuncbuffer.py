@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
 import functools
-from multiprocessing import Lock, Manager, parent_process
+from multiprocessing import current_process, Lock, Manager, Process
 import random
 import time
 from typing import Union, Tuple
@@ -99,7 +99,7 @@ def buffer(seconds: Union[float, int],
                         return await self.original_func(*args, **kwargs)
                     return temp()
 
-                if(parent_process()):  # If true, is multiprocess process
+                if(type(current_process()) == Process):  # If true, is multiprocess process
                     self.lock.acquire()
                     time.sleep(self.seconds + l_random_delay)
                     self.lock.release()
