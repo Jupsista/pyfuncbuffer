@@ -3,7 +3,7 @@
 [![pypi](https://img.shields.io/pypi/v/pyfuncbuffer.svg)](https://pypi.org/project/pyfuncbuffer)
 [![pypi license](https://img.shields.io/pypi/l/pyfuncbuffer)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
-A simple to use decorator to buffer function calls. Supports python versions 3.6 and up.
+A simple to use decorator to buffer function calls. Supports python versions 3.7 and up.
 Works for both regular and async functions.
 
 ## Install
