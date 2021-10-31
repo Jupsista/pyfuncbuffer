@@ -11,14 +11,14 @@ This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import asyncio
 import functools
-from multiprocessing import current_process, Lock, Manager, Process
+from multiprocessing import current_process, Lock as mpLock, Manager, Process
+from threading import current_thread, Thread, Lock as tLock
 import random
 import time
 from typing import Union, Tuple
@@ -76,7 +76,9 @@ def buffer(seconds: Union[float, int],
             self.random_delay_start = 0
             self.random_delay_end = random_delay
             self.buffer_on_same_arguments = buffer_on_same_arguments
-            self.lock = Lock()
+            self._mp_lock = mpLock()
+            self._t_lock = tLock()
+            self.lock = None
 
             if asyncio.iscoroutinefunction(self.func):
                 self.is_coroutine = True
@@ -90,7 +92,7 @@ def buffer(seconds: Union[float, int],
             functools.update_wrapper(self, func)  # Transfer func attributes
 
         def __call__(self, *args, **kwargs):
-            l_random_delay = random.uniform(self.random_delay_start, self.random_delay_end)
+            l_random_delay = self.get_random_delay()
             # If always buffer is on then this is the only required thing to do
             if self.always_buffer:
                 if self.is_coroutine:
@@ -99,7 +101,8 @@ def buffer(seconds: Union[float, int],
                         return await self.original_func(*args, **kwargs)
                     return temp()
 
-                if(type(current_process()) == Process):  # If true, is multiprocess process
+                self.detect_process_type()
+                if self.lock:  # If true, is multiprocess or thread process
                     self.lock.acquire()
                     time.sleep(self.seconds + l_random_delay)
                     self.lock.release()
@@ -197,6 +200,14 @@ def buffer(seconds: Union[float, int],
         def get_random_delay(self) -> float:
             """Return random delay specified by self.random_delay_start and self.random_delay_end."""
             return random.uniform(self.random_delay_start, self.random_delay_end)
+
+        def detect_process_type(self):
+            """Detect the process type(thread or multiprocess process) and set self.lock accordingly."""
+            if not self.lock:
+                if type(current_process()) == Process:  # Is multiprocess process
+                    self.lock = self._mp_lock
+                if type(current_thread()) == Thread:  # Is thread
+                    self.lock = self._t_lock
 
         # This is required for instance methods to work
         def __get__(self, instance, instancetype):
