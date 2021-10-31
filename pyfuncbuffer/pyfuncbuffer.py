@@ -120,16 +120,14 @@ def buffer(seconds: Union[float, int],
                         return await self.buffer_same_args_async(*args, **kwargs)
                     return tmp()
 
-                returning = self.buffer_same_args(*args, **kwargs)
-                return returning
+                return self.buffer_same_args(*args, **kwargs)
             else:
                 if self.is_coroutine:
                     async def tmp():
                         return await self.buffer_regular_async(*args, **kwargs)
                     return tmp()
 
-                returning = self.buffer_regular(*args, **kwargs)
-                return returning
+                return self.buffer_regular(*args, **kwargs)
 
         def buffer_same_args(self, *args, **kwargs):
             """Buffer the function only when `*args` and `**kwargs` are the same."""
