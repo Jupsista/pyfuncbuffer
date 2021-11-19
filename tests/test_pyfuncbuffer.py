@@ -540,7 +540,10 @@ def test_multiprocessing_share_buffer_twice():
     p1.join()
     p2.join()
     # Use 0.09 instead of 0.1 since multiprocessing can be a bit unpredictable
-    assert(time2 - time1 > 0.09 and time2 - time1 < 0.15)
+    # Also since either of the processes can reach buffering before the other,
+    # check for both outomes
+    assert((time2 - time1 > 0.09 and time2 - time1 < 0.15)
+           or (time1 - time2 > 0.09 and time1 - time2 < 0.15))
 
 
 # Function should be buffered both times
@@ -556,11 +559,12 @@ def test_multiprocessing_always_buffer_twice():
     now = time.time()
     p1.start()
     p2.start()
-    _ = q1.get()
+    time2 = q1.get()
     time1 = q2.get()
     p1.join()
     p2.join()
-    assert(time1 - now > 0.18 and time1 - now < 0.25)
+    assert((time1 - now > 0.18 and time1 - now < 0.25)
+           or (time2 - now > 0.18 and time2 - now < 0.25))
 
 
 # The second process method call should be buffered
@@ -583,7 +587,8 @@ def test_multiprocessing_instance_method_twice():
     p1.join()
     p2.join()
     # Use 0.09 instead of 0.1 since multiprocessing can be a bit unpredictable
-    assert(time2 - time1 > 0.09 and time2 - time1 < 0.15)
+    assert((time2 - time1 > 0.09 and time2 - time1 < 0.15)
+           or (time1 - time2 > 0.09 and time1 - time2 < 0.15))
 
 
 def test_threading_twice():

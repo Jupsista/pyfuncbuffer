@@ -94,6 +94,7 @@ def buffer(seconds: Union[float, int],
         def __call__(self, *args, **kwargs):
             l_random_delay = self.get_random_delay()
             # If always buffer is on then this is the only required thing to do
+            self.detect_process_type()
             if self.always_buffer:
                 if self.is_coroutine:
                     async def temp():
@@ -101,11 +102,9 @@ def buffer(seconds: Union[float, int],
                         return await self.original_func(*args, **kwargs)
                     return temp()
 
-                self.detect_process_type()
                 if self.lock:  # If true, is multiprocess or thread process
-                    self.lock.acquire()
-                    time.sleep(self.seconds + l_random_delay)
-                    self.lock.release()
+                    with self.lock:
+                        time.sleep(self.seconds + l_random_delay)
                     return self.original_func(*args, **kwargs)
 
                 time.sleep(self.seconds + l_random_delay)
@@ -117,19 +116,29 @@ def buffer(seconds: Union[float, int],
                     # We have to make a temp function, otherwise we can't return async from a
                     # non-async function.
                     async def tmp():
+                        if self.lock:
+                            with self.lock:
+                                return await self.buffer_same_args_async(*args, **kwargs)
                         return await self.buffer_same_args_async(*args, **kwargs)
                     return tmp()
 
-                returning = self.buffer_same_args(*args, **kwargs)
-                return returning
+                if self.lock:
+                    with self.lock:
+                        return self.buffer_same_args(*args, **kwargs)
+                return self.buffer_same_args(*args, **kwargs)
             else:
                 if self.is_coroutine:
                     async def tmp():
-                        return await self.buffer_regular_async(*args, **kwargs)
+                        if self.lock:
+                            with self.lock:
+                                return await self.buffer_regular_async(*args, **kwargs)
+                            return await self.buffer_regular_async(*args, **kwargs)
                     return tmp()
 
-                returning = self.buffer_regular(*args, **kwargs)
-                return returning
+                if self.lock:
+                    with self.lock:
+                        return self.buffer_regular(*args, **kwargs)
+                return self.buffer_regular(*args, **kwargs)
 
         def buffer_same_args(self, *args, **kwargs):
             """Buffer the function only when `*args` and `**kwargs` are the same."""
