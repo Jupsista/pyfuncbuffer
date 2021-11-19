@@ -6,7 +6,7 @@ from setuptools import find_packages
 
 setup(
     name='pyfuncbuffer',
-    version='0.2.1',
+    version='0.2.2',
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     license='GPLv3',
     description="A library for buffering function calls",
